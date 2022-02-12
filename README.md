@@ -1,5 +1,5 @@
 # Corpe
-compiler for a concatinative programming language in python
+compiler for a concatenative programming language in python
 
 # syntax
 write a plain number to push an integer to the stack  
