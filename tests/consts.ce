@@ -1,0 +1,10 @@
+const N 10 end
+const M 20 end
+const K 60 N M + + end
+
+
+N print
+M print
+K print
+
+N M * print
