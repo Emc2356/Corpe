@@ -1,0 +1,7 @@
+var x
+var y
+69 set y
+420 set x
+x print
+y print
+x y - print

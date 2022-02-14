@@ -68,6 +68,52 @@ const N 2 50 / 10 + end  // this will evaluate 35
 end drop
 ```
 
+# memory
+to allocate some memory use the mem keyword
+
+```
+mem <name> <size> end
+```
+the size can even be a series of intstructions
+```
+mem X 10 5 + end
+```
+to access a part of that memory use mem-get
+
+```
+mem X 15 end
+// <index-of-X> mem-get <memory-block>
+0 mem-get X
+// the returned value is pushed into the stack
+```
+to set a value in a memory block use mem-set
+```
+mem X 15 end
+// <value> <index> mem-set <memory-block>
+5 0 mem-set X
+
+// and to show that it has changed 
+0 mem-get X print
+```
+
+# variables
+to declare a variable use the var keyword
+```
+var x
+```
+to set the value of a variable use the set keyword
+```
+var x
+5 set x
+
+```
+the set keyword expects one value at the stack  
+to get a variable value just type the name of the variable
+```
+var x
+5 set x
+x print
+```
 
 # note 
 the default stack limit is 30k
