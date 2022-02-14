@@ -7,14 +7,30 @@ import src.CEAst as CEAst  # type: ignore[import]
 Intrinsics = CEAst.Intrinsics
 KeyWords = CEAst.KeyWords
 Push = CEAst.Push
+PushVariable = CEAst.PushVariable
 Types = CEAst.Types
+SetVariable = CEAst.SetVariable
+Mem = CEAst.Mem
+MemSet = CEAst.MemSet
+MemGet = CEAst.MemGet
+
+variable_prefix: str = "_CeVariable_"
+memory_prefix: str = "_CeMemory_"
+
+
+def construct_name(name: str) -> str:
+    """
+    it takes in a string and it returns a series of numbers that cresponsed to that name
+    """
+    return "".join(str(ord(char)) for char in name)
 
 
 def generate_standard_code(
-    out: list[str], do_bounds_checking: bool = False, stack_size: int = 30000
+    out: list[str],
+    ast: CEAst.AST,
+    do_bounds_checking: bool = False,
+    stack_size: int = 30000,
 ) -> None:
-    # TODO: when we implement static type checking we can remove the bounds checking
-
     indentation_level: int = 0
 
     def write(s: str) -> None:
@@ -23,6 +39,7 @@ def generate_standard_code(
         elif s == "    ":
             out.append("\n")
 
+    # TODO: when we implement static type checking we can remove the bounds checking
     def generate_bounds_checking_code() -> str:
         if do_bounds_checking:
             padding = " " * indentation_level + " " * INDENTATION
@@ -41,6 +58,12 @@ def generate_standard_code(
     write("    ")
     write(f"int stack[{stack_size}];")
     write("int stack_ptr = 0;")
+    write("    ")
+    for name in ast.variables:
+        write(f"int {variable_prefix}{construct_name(name)};")
+    write("    ")
+    for mem in ast.memories:
+        write(f"int {memory_prefix}{construct_name(mem.name)}[{mem.size}];")
     write("    ")
     write("void push(int value) {")
     indentation_level += INDENTATION
@@ -131,7 +154,9 @@ def generate_c_code_from_AST(
         elif s != "":
             generated_c.append(f"{' ' * indentation_level}{s}{end}")
 
-    generate_standard_code(generated_standard_c, do_bounds_checking, stack_size)
+    generate_standard_code(
+        generated_standard_c, ast, do_bounds_checking, stack_size
+    )
 
     write("int main(int argc, char** argv) {")
     indentation_level += INDENTATION
@@ -201,6 +226,9 @@ def generate_c_code_from_AST(
         elif op == Intrinsics.PRINT:
             write("// print")
             write('printf("%d\\n", pop());')
+        elif op == Intrinsics.PUTC:
+            write("// putc")
+            write("fputc((char) pop(), stdout);")
         elif op == Intrinsics.LT:
             write("// less than")
             write("a = pop();")
@@ -284,6 +312,28 @@ def generate_c_code_from_AST(
         elif op == KeyWords.CONST:
             # no need to implement anything special for this as constants is a parsing stage thing
             continue
+        elif op == PushVariable:
+            write(f"push({variable_prefix}{construct_name(op.name)});")
+        elif op == SetVariable:
+            write(f"{variable_prefix}{construct_name(op.name)} = pop();")
+        elif op == Intrinsics.DBG_PRINT_STACK:
+            write("for (int jj = 0; jj < stack_ptr; jj ++) {")
+            write("  printf(\"%d:%d\\n\", jj, stack[jj]);")
+            write("}")
+        elif op == MemSet:
+            name = op.name
+            write("if (stack_ptr < 2) {")
+            write("  printf(\"expected at least 2 elements on top of the stack to set memory\\n\");")
+            write("  exit(1);")
+            write("}")
+            write(f"{memory_prefix}{construct_name(name)}[pop()] = pop();")
+        elif op == MemGet:
+            name = op.name
+            write("if (stack_ptr < 1) {")
+            write("  printf(\"expected at least 1 element on top of the stack to get a part from the memory\\n\");")
+            write("  exit(1);")
+            write("}")
+            write(f"push({memory_prefix}{construct_name(name)}[pop()]);")
         else:
             raise NotImplementedError(op)
 
