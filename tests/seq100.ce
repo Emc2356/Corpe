@@ -1,7 +1,7 @@
 const N 100 end
 
 
-0 while 2dup N < do
-    print
+0 while dup N < do
+    dup print
     1 +
-end
+end print

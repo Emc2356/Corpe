@@ -1,40 +1,59 @@
 // code port from https://gist.github.com/rexim/c595009436f87ca076e7c4a2fb92ce10
+const sizeof(int64) 64 end
+const sizeof(int32) 32 end
+const sizeof(int16) 16 end
+const sizeof(int8)  8 end
 const sizeof(board) 30 end
-mem board sizeof(board) end
+memory board sizeof(board) end
+memory j sizeof(int64) end
+memory pattern sizeof(int64) end
 
-// the memory block allocated to board is already 0 initialized
-1 sizeof(board) 1 - mem-set board
+1 board cast(int) sizeof(board) 1 - sizeof(int64) * + cast(ptr) !64
 
-var i
-var j
-var pattern
+// @memset
+0 while dup sizeof(board) 1 - < do
+    dup 0 swap sizeof(int64) *
+    board cast(int) +
+    cast(ptr) !64
+    1 +
+end drop
 
-0 set i
-while i sizeof(board) 2 - < do
-    0 set j
-    while j sizeof(board) < do
-        j mem-get board
-        // the math here works because '*' in ascii is 42 and ' ' is 32
-        // so if the value is 0 we multiply with 0 and add 32 so we have space
-        // and if we multiply with 1 we get 30 and we add 32 so we have asterisk
-        10 * 32 + putc
-        j 1 + set j
-    end
+0 while dup sizeof(board) 2 - < do
+    0 while dup sizeof(board) < do
+        dup sizeof(int64) *
+        board cast(int) +
+        cast(ptr) @64 10 * 32 + putc
+        1 +
+    end drop
 
     10 putc
 
-    1 set j
+    // target series instructions:
+    // int pattern = (board[0] << 1) | board[1];
+    board @64 1 << // (board[0] << 1)
+    board cast(int) sizeof(int64) + cast(ptr) @64 // board[1]
+    | // perform a bitwise or operation
+    pattern !64 // set te value
 
-    0 mem-get board 1 <<
-    1 mem-get board |
-    set pattern
-    while j sizeof(board) 1 - < do
-        pattern 1 << 7 & j 1 + mem-get board |
-        set pattern
-        110 pattern >> 1 &
-        j mem-set board
-        j 1 + set j
+    0 j !64 // set the value of j
+    while
+        j @64 // read the value and push it to the stack
+        sizeof(board) 1 - < // compare to to the size of the board - 1
+    do
+        // target series of instructions:
+        // pattern = ((pattern << 1) & 7) | board[j + 1];
+        pattern @64 1 << 7 & // ((pattern << 1) & 7)
+        board cast(int) sizeof(int64) + j @64 sizeof(int64) * + cast(ptr) @64 // board[j + 1]
+        | // perform a bitwise or
+        pattern !64 // save the current value to pattern
+
+        // board[j] = (110 >> pattern) & 1;
+        110 pattern @64 >> 1 & // (110 >> pattern) & 1
+        board cast(int) sizeof(int64) j @64 * + cast(ptr) !64 // board[j] = pattern
+
+        // increment j
+        j @64 1 + j !64
     end
 
-    i 1 + set i
-end
+    1 +
+end drop
