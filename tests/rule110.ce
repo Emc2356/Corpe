@@ -1,58 +1,60 @@
+// ptr int
+macro ptr+ cast(int) + cast(ptr) endmacro
+// int ptr
+macro +ptr swap cast(int) + cast(ptr) endmacro
+
 // code port from https://gist.github.com/rexim/c595009436f87ca076e7c4a2fb92ce10
-const sizeof(int64) 64 end
-const sizeof(int32) 32 end
-const sizeof(int16) 16 end
-const sizeof(int8)  8 end
+const sizeof(int64) 8 end
+const sizeof(int8)  1 end
+
 const sizeof(board) 30 end
-memory board sizeof(board) end
-memory j sizeof(int64) end
-memory pattern sizeof(int64) end
+const sizeof(board)-1 sizeof(board) 1 - end
+const sizeof(board)-2 sizeof(board) 2 - end
 
-1 board cast(int) sizeof(board) 1 - sizeof(int64) * + cast(ptr) !64
+memory board sizeof(board) sizeof(int8) * end
 
-// @memset
-0 while dup sizeof(board) 1 - < do
-    dup 0 swap sizeof(int64) *
-    board cast(int) +
-    cast(ptr) !64
-    1 +
-end drop
+memory i sizeof(int64) end
+memory pattern sizeof(int8) end
 
-0 while dup sizeof(board) 2 - < do
+macro i.value i @64 endmacro
+macro i.store i !64 endmacro
+macro pattern.value pattern @8 endmacro
+macro pattern.store pattern !8 endmacro
+
+1 board sizeof(board)-1 sizeof(int8) * +ptr !8
+
+0 while dup sizeof(board)-2 < do
     0 while dup sizeof(board) < do
-        dup sizeof(int64) *
-        board cast(int) +
-        cast(ptr) @64 10 * 32 + putc
+        dup sizeof(int8) *
+        board ptr+ @8
+        10 * 32 + putc
         1 +
     end drop
 
     10 putc
 
-    // target series instructions:
+    // target series of instructions:
     // int pattern = (board[0] << 1) | board[1];
-    board @64 1 << // (board[0] << 1)
-    board cast(int) sizeof(int64) + cast(ptr) @64 // board[1]
+    board @8 1 << // (board[0] << 1)
+    board sizeof(int8) +ptr @8 // board[1]
     | // perform a bitwise or operation
-    pattern !64 // set te value
+    pattern.store // set te value
 
-    0 j !64 // set the value of j
-    while
-        j @64 // read the value and push it to the stack
-        sizeof(board) 1 - < // compare to to the size of the board - 1
-    do
+    0 i.store // set the value of i
+    while i.value sizeof(board)-1 < do
         // target series of instructions:
-        // pattern = ((pattern << 1) & 7) | board[j + 1];
-        pattern @64 1 << 7 & // ((pattern << 1) & 7)
-        board cast(int) sizeof(int64) + j @64 sizeof(int64) * + cast(ptr) @64 // board[j + 1]
+        // pattern = ((pattern << 1) & 7) | board[i + 1];
+        pattern.value 1 << 7 & // ((pattern << 1) & 7)
+        i.value 1 + sizeof(int8) * board ptr+ @8
         | // perform a bitwise or
-        pattern !64 // save the current value to pattern
+        pattern.store // save the current value to pattern
 
-        // board[j] = (110 >> pattern) & 1;
-        110 pattern @64 >> 1 & // (110 >> pattern) & 1
-        board cast(int) sizeof(int64) j @64 * + cast(ptr) !64 // board[j] = pattern
+        // board[i] = (110 >> pattern) & 1;
+        110 pattern.value >> 1 & // (110 >> pattern) & 1
+        i.value sizeof(int8) * board ptr+ !8
 
-        // increment j
-        j @64 1 + j !64
+        // increment i
+        i.value 1 + i.store
     end
 
     1 +

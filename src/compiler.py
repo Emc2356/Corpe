@@ -23,9 +23,8 @@ from src.core import (  # type: ignore[import]
 
 import textwrap
 
-variable_prefix: str = "CeVariable_"
 memory_prefix: str = "CeMemory_"
-memory_padding: int = 100
+memory_padding: int = 5
 
 
 def construct_name(name: str) -> str:
@@ -42,13 +41,12 @@ def generate_standard_code(
 ) -> None:
     # NOTE: indentation has to be 8 spaces
 
-    push_mems: list[PushMem] = list(filter(lambda op: op == PushMem, ast.body))
+    push_mems: list[PushMem] = list(filter(lambda op: isinstance(op, PushMem), ast.body))
 
     # to be sure that we dont access out of memory accidentally
     memories = "\n"
-    memories += f"        int CEMemory[{memory_padding} + {sum(mem.size for mem in ast.memories)} + {memory_padding}];\n"
     for i, mem in enumerate(ast.memories):
-        memories += f"        void* {memory_prefix}{i} = &CEMemory[{memory_padding + sum(mem.size for mem in ast.memories[:i])}]; // {mem.name}\n"
+        memories += f"        bytes {memory_prefix}{i}[{mem.size}]; // {mem.name}\n"
         mem.id = i
         for push_mem in push_mems:
             if push_mem.name == mem.name:
@@ -59,6 +57,9 @@ def generate_standard_code(
         #include <stdio.h>
         #include <stdlib.h>
         #include <math.h>
+        
+        typedef unsigned char byte;
+        typedef unsigned char* bytes;
         
         int stack[{stack_size}];
         int stack_ptr = 0;
@@ -97,7 +98,7 @@ def generate_standard_code(
         void clear() {{
           stack_ptr = 0;
         }}
-    """
+    """[1:]
     )
     out.extend(line + "\n" for line in string.splitlines())
 
@@ -251,21 +252,21 @@ def generate_c_code_from_AST(ast: CEAst.AST, stack_size: int = 30000) -> str:
             elif op.typ == Intrinsics.CAST_INT:  # ignore
                 pass
             elif op.typ == Intrinsics.STORE8:
-                write(f"((int*) pop())[0] = (char) pop();")
+                write(f"((bytes) pop())[0] = (char) pop();")
             elif op.typ == Intrinsics.LOAD8:
-                write(f"push((char) ((int*) pop())[0]);")
+                write(f"push((char) ((bytes) pop())[0]);")
             elif op.typ == Intrinsics.STORE16:
-                write(f"((int*) pop())[0] = (short) pop();")
+                write(f"((bytes) pop())[0] = (short) pop();")
             elif op.typ == Intrinsics.LOAD16:
-                write(f"push((short) ((int*) pop())[0]);")
+                write(f"push((short) ((bytes) pop())[0]);")
             elif op.typ == Intrinsics.STORE32:
-                write(f"((int*) pop())[0] = (int) pop();")
+                write(f"((bytes) pop())[0] = (int) pop();")
             elif op.typ == Intrinsics.LOAD32:
-                write(f"push((long) ((int*) pop())[0]);")
+                write(f"push((int) ((bytes) pop())[0]);")
             elif op.typ == Intrinsics.STORE64:
-                write(f"((int*) pop())[0] = (long) pop();")
+                write(f"((bytes) pop())[0] = (long) pop();")
             elif op.typ == Intrinsics.LOAD64:
-                write(f"push((long) ((int*) pop())[0]);")
+                write(f"push((long) ((bytes) pop())[0]);")
             else:
                 raise NotImplementedError(op)
         elif op == Push:

@@ -4,6 +4,8 @@ from __future__ import annotations
 from src.core import Patterns, CWD, BuildIn  # type: ignore[import]
 import src.CEAst as CEAst  # type: ignore[import]
 
+from typing import Optional
+
 from src.core import (  # type: ignore[import]
     Patterns,
     CWD,
@@ -42,9 +44,22 @@ def typ_to_human(typ: CEAst.Types) -> str:
 
 
 def typecheck_error(
-    location: str, details: str, exitcode: int = 1, noexit: bool = False
+    location: str,
+    details: str,
+    node: Optional[BuildIn] = None,
+    exitcode: int = 1,
+    noexit: bool = False,
 ) -> None:
     print(f"{location}: ERROR: {details}")
+
+    if node is not None:
+        expanded_from = node.expanded_from
+        while expanded_from is not None:
+            typecheck_note(
+                expanded_from.format_location(),
+                f"expansion from {node.expanded_from.word}",
+            )
+            expanded_from = expanded_from.child
     if not noexit:
         sys.exit(exitcode)
 
@@ -332,6 +347,7 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                     typecheck_error(
                         node.format_location(),
                         f"{mapping[Intrinsics.CAST_INT]} expected one element on the stack but found none",
+                        node,
                     )
                 stack.pop()
                 stack.append(Types.INT)
@@ -340,14 +356,25 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                     typecheck_error(
                         node.format_location(),
                         f"{mapping[Intrinsics.CAST_PTR]} expected one element on the stack but found none",
+                        node,
                     )
                 stack.pop()
                 stack.append(Types.POINTER)
-            elif node.typ in {Intrinsics.STORE8, Intrinsics.STORE16, Intrinsics.STORE32, Intrinsics.STORE64}:
+            elif node.typ in {
+                Intrinsics.STORE8,
+                Intrinsics.STORE16,
+                Intrinsics.STORE32,
+                Intrinsics.STORE64,
+            }:
                 typecheck_node_expect_ptr_int_return_none(
                     stack, node, mapping[node.typ]
                 )
-            elif node.typ in {Intrinsics.LOAD8, Intrinsics.LOAD16, Intrinsics.LOAD32, Intrinsics.LOAD64}:
+            elif node.typ in {
+                Intrinsics.LOAD8,
+                Intrinsics.LOAD16,
+                Intrinsics.LOAD32,
+                Intrinsics.LOAD64,
+            }:
                 typecheck_node_expect_ptr_return_int(
                     stack, node, mapping[Intrinsics.LOAD8]
                 )
@@ -370,6 +397,7 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                         typecheck_error(
                             op.format_location(),
                             f"can not change the data types in the data stack in while-do blocks",
+                            node,
                             noexit=True,
                         )
                         typecheck_note(
@@ -389,6 +417,7 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                         typecheck_error(
                             op.format_location(),
                             f"can not change the data types in the data stack in if statements",
+                            node,
                             noexit=True,
                         )
                         typecheck_note(
@@ -400,6 +429,7 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                         typecheck_error(
                             op.format_location(),
                             f"can not change the data types in the data stack in do-end statements",
+                            node,
                             noexit=True,
                         )
                         typecheck_note(
