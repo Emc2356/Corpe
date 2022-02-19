@@ -1,0 +1,4 @@
+memory xx 50 end
+
+-127 xx cast(int) 8 + cast(ptr) !8
+xx cast(int) 8 + cast(ptr) @8 cast(int) print

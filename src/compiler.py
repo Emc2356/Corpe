@@ -4,23 +4,32 @@ from src.core import INDENTATION  # type: ignore[import]
 
 import src.CEAst as CEAst  # type: ignore[import]
 
-Intrinsics = CEAst.Intrinsics
-KeyWords = CEAst.KeyWords
-Push = CEAst.Push
-PushVariable = CEAst.PushVariable
-Types = CEAst.Types
-SetVariable = CEAst.SetVariable
-Mem = CEAst.Mem
-MemSet = CEAst.MemSet
-MemGet = CEAst.MemGet
+from src.core import (  # type: ignore[import]
+    Patterns,
+    CWD,
+    BuildIn,
+    Intrinsics,
+    Intrinsic,
+    KeyWords,
+    KeyWord,
+    mapping,
+    mapping_names,
+    Types,
+    LocType,
+    Push,
+    Mem,
+    PushMem,
+)
 
-variable_prefix: str = "_CeVariable_"
-memory_prefix: str = "_CeMemory_"
+import textwrap
+
+memory_prefix: str = "CeMemory_"
+memory_padding: int = 5
 
 
 def construct_name(name: str) -> str:
     """
-    it takes in a string and it returns a series of numbers that cresponsed to that name
+    it takes in a string and it returns a series of numbers that corresponded to that name
     """
     return "".join(str(ord(char)) for char in name)
 
@@ -28,115 +37,73 @@ def construct_name(name: str) -> str:
 def generate_standard_code(
     out: list[str],
     ast: CEAst.AST,
-    do_bounds_checking: bool = False,
     stack_size: int = 30000,
 ) -> None:
-    indentation_level: int = 0
+    # NOTE: indentation has to be 8 spaces
 
-    def write(s: str) -> None:
-        if s != "":
-            out.append(f"{' ' * indentation_level}{s}\n")
-        elif s == "    ":
-            out.append("\n")
+    push_mems: list[PushMem] = list(filter(lambda op: isinstance(op, PushMem), ast.body))
 
-    # TODO: when we implement static type checking we can remove the bounds checking
-    def generate_bounds_checking_code() -> str:
-        if do_bounds_checking:
-            padding = " " * indentation_level + " " * INDENTATION
-            return (
-                # the first line is auto-indented by the write function
-                f"if (stack_ptr >= {stack_size} || stack_ptr < 0) {{\n"
-                f'{padding}printf("index %d went out of range %d", stack_ptr, {stack_size});\n'
-                f"{padding}exit(1);\n"
-                f"{' ' * indentation_level}}}"
-            )
-        return ""
+    # to be sure that we dont access out of memory accidentally
+    memories = "\n"
+    for i, mem in enumerate(ast.memories):
+        memories += f"        bytes {memory_prefix}{i}[{mem.size}]; // {mem.name}\n"
+        mem.id = i
+        for push_mem in push_mems:
+            if push_mem.name == mem.name:
+                push_mem.id = i
 
-    write("#include <stdio.h>")
-    write("#include <stdlib.h>")
-    write("#include <math.h>")
-    write("    ")
-    write(f"int stack[{stack_size}];")
-    write("int stack_ptr = 0;")
-    write("    ")
-    for name in ast.variables:
-        write(f"int {variable_prefix}{construct_name(name)};")
-    write("    ")
-    for mem in ast.memories:
-        write(f"int {memory_prefix}{construct_name(mem.name)}[{mem.size}];")
-    write("    ")
-    write("void push(int value) {")
-    indentation_level += INDENTATION
-    write("stack_ptr += 1;")
-    write(generate_bounds_checking_code())
-    write("stack[stack_ptr] = value;")
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
-    write("int pop() {")
-    indentation_level += INDENTATION
-    write("int value = stack[stack_ptr];")
-    write("stack_ptr -= 1;")
-    write(generate_bounds_checking_code())
-    write("return value;")
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
-    write("void drop() {")
-    indentation_level += INDENTATION
-    write("stack_ptr -= 1;")
-    write(generate_bounds_checking_code())
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
-    write("void drop2() {")
-    indentation_level += INDENTATION
-    write("stack_ptr -= 2;")
-    write(generate_bounds_checking_code())
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
-    write("void dup() {")
-    indentation_level += INDENTATION
-    write("stack_ptr += 1;")
-    write(generate_bounds_checking_code())
-    write("stack[stack_ptr] = stack[stack_ptr - 1];")
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
-    write("void dup2() {")
-    indentation_level += INDENTATION
-    write("stack_ptr += 1;")
-    write(generate_bounds_checking_code())
-    write("stack[stack_ptr] = stack[stack_ptr - 1];")
-    write("stack_ptr += 1;")
-    write(generate_bounds_checking_code())
-    write("stack[stack_ptr] = stack[stack_ptr - 1];")
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
-    write("void swap() {")
-    indentation_level += INDENTATION
-    write("int temp = stack[stack_ptr];")
-    write("stack_ptr -= 1;")
-    write(generate_bounds_checking_code())
-    write("stack_ptr += 1;")
-    write("stack[stack_ptr] = stack[stack_ptr - 1];")
-    write("stack[stack_ptr - 1] = temp;")
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
-    write("void clear() {")
-    indentation_level += INDENTATION
-    write("stack_ptr = 0;")
-    indentation_level -= INDENTATION
-    write("}")
-    write("    ")
+    string = textwrap.dedent(
+        f"""
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <math.h>
+        
+        typedef unsigned char byte;
+        typedef unsigned char* bytes;
+        
+        int stack[{stack_size}];
+        int stack_ptr = 0;
+        {memories}
+        void push(int value) {{
+          stack[++stack_ptr] = value;
+        }}
+        
+        int pop() {{
+          return stack[stack_ptr--];
+        }}
+        
+        void drop() {{
+          stack_ptr -= 1;
+        }}
+        
+        void drop2() {{
+          stack_ptr -= 2;
+        }}
+        
+        void dup() {{
+          stack[++stack_ptr] = stack[stack_ptr - 1];
+        }}
+        
+        void dup2() {{
+          stack[++stack_ptr] = stack[stack_ptr - 1];
+          stack[++stack_ptr] = stack[stack_ptr - 1];
+        }}
+        
+        void swap() {{
+          int temp = stack[stack_ptr];
+          stack[stack_ptr] = stack[stack_ptr - 1];
+          stack[stack_ptr - 1] = temp;
+        }}
+        
+        void clear() {{
+          stack_ptr = 0;
+        }}
+    """[1:]
+    )
+    out.extend(line + "\n" for line in string.splitlines())
 
 
-def generate_c_code_from_AST(
-    ast: CEAst.AST, do_bounds_checking: bool = False, stack_size: int = 30000
-) -> str:
+def generate_c_code_from_AST(ast: CEAst.AST, stack_size: int = 30000) -> str:
     generated_c: list[str] = []
     generated_functions_c: list[str] = []
     generated_standard_c: list[str] = []
@@ -154,9 +121,7 @@ def generate_c_code_from_AST(
         elif s != "":
             generated_c.append(f"{' ' * indentation_level}{s}{end}")
 
-    generate_standard_code(
-        generated_standard_c, ast, do_bounds_checking, stack_size
-    )
+    generate_standard_code(generated_standard_c, ast, stack_size)
 
     write("int main(int argc, char** argv) {")
     indentation_level += INDENTATION
@@ -164,176 +129,184 @@ def generate_c_code_from_AST(
     write("int b;")
 
     for op in ast.body:
-        if op == Intrinsics.ADD:
-            write("// add")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b + a);")
-        elif op == Intrinsics.SUB:
-            write("// sub")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b - a);")
-        elif op == Intrinsics.DIV:
-            write("// div")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b / a);")
-        elif op == Intrinsics.MOD:
-            write("// mod")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b % a);")
-        elif op == Intrinsics.MUL:
-            write("// mul")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b * a);")
-        elif op == Intrinsics.POW:
-            write("// pow")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(pow(b, a));")
-        elif op == Intrinsics.BIN_AND:
-            write("// bin and")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b & a);")
-        elif op == Intrinsics.BIN_OR:
-            write("// bin or")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b | a);")
-        elif op == Intrinsics.BIN_INV:
-            write("// bin inc")
-            write("a = pop();")
-            write("push(~a);")
-        elif op == Intrinsics.BIN_XOR:
-            write("// bin xor")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b ^ a);")
-        elif op == Intrinsics.RSHIFT:
-            write("// bin right shift")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b >> a);")
-        elif op == Intrinsics.LSHIFT:
-            write("// bin left shift")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b << a);")
-        elif op == Intrinsics.PRINT:
-            write("// print")
-            write('printf("%d\\n", pop());')
-        elif op == Intrinsics.PUTC:
-            write("// putc")
-            write("fputc((char) pop(), stdout);")
-        elif op == Intrinsics.LT:
-            write("// less than")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b < a);")
-        elif op == Intrinsics.LE:
-            write("// less than or equal")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b <= a);")
-        elif op == Intrinsics.EQ:
-            write("// equal")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b == a);")
-        elif op == Intrinsics.NE:
-            write("// not equal")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b != a);")
-        elif op == Intrinsics.GE:
-            write("// greater than")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b > a);")
-        elif op == Intrinsics.GT:
-            write("// greater than or equal")
-            write("a = pop();")
-            write("b = pop();")
-            write("push(b >= a);")
-        elif op == Intrinsics.DROP:
-            write("// drop")
-            write("drop();")
-        elif op == Intrinsics.DROP2:
-            write("// 2drop")
-            write("drop2();")
-        elif op == Intrinsics.DUP:
-            write("// dup")
-            write("dup();")
-        elif op == Intrinsics.DUP2:
-            write("// 2dup")
-            write("dup2();")
-        elif op == Intrinsics.SWAP:
-            write("// swap")
-            write("swap();")
-        elif op == Intrinsics.CLEAR:
-            write("// clear stack")
-            write("clear();")
+        if op == Intrinsic:
+            if op.typ == Intrinsics.ADD:
+                write("// add")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b + a);")
+            elif op.typ == Intrinsics.SUB:
+                write("// sub")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b - a);")
+            elif op.typ == Intrinsics.DIV:
+                write("// div")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b / a);")
+            elif op.typ == Intrinsics.MOD:
+                write("// mod")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b % a);")
+            elif op.typ == Intrinsics.MUL:
+                write("// mul")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b * a);")
+            elif op.typ == Intrinsics.POW:
+                write("// pow")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(pow(b, a));")
+            elif op.typ == Intrinsics.BIN_AND:
+                write("// bin and")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b & a);")
+            elif op.typ == Intrinsics.BIN_OR:
+                write("// bin or")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b | a);")
+            elif op.typ == Intrinsics.BIN_INV:
+                write("// bin inc")
+                write("a = pop();")
+                write("push(~a);")
+            elif op.typ == Intrinsics.BIN_XOR:
+                write("// bin xor")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b ^ a);")
+            elif op.typ == Intrinsics.RSHIFT:
+                write("// bin right shift")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b >> a);")
+            elif op.typ == Intrinsics.LSHIFT:
+                write("// bin left shift")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b << a);")
+            elif op.typ == Intrinsics.PRINT:
+                write("// print")
+                write('printf("%d\\n", pop());')
+            elif op.typ == Intrinsics.PUTC:
+                write("// putc")
+                write("fputc((char) pop(), stdout);")
+            elif op.typ == Intrinsics.LT:
+                write("// less than")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b < a);")
+            elif op.typ == Intrinsics.LE:
+                write("// less than or equal")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b <= a);")
+            elif op.typ == Intrinsics.EQ:
+                write("// equal")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b == a);")
+            elif op.typ == Intrinsics.NE:
+                write("// not equal")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b != a);")
+            elif op.typ == Intrinsics.GE:
+                write("// greater than")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b > a);")
+            elif op.typ == Intrinsics.GT:
+                write("// greater than or equal")
+                write("a = pop();")
+                write("b = pop();")
+                write("push(b >= a);")
+            elif op.typ == Intrinsics.DROP:
+                write("// drop")
+                write("drop();")
+            elif op.typ == Intrinsics.DROP2:
+                write("// 2drop")
+                write("drop2();")
+            elif op.typ == Intrinsics.DUP:
+                write("// dup")
+                write("dup();")
+            elif op.typ == Intrinsics.DUP2:
+                write("// 2dup")
+                write("dup2();")
+            elif op.typ == Intrinsics.SWAP:
+                write("// swap")
+                write("swap();")
+            elif op.typ == Intrinsics.CLEAR:
+                write("// clear stack")
+                write("clear();")
+            elif op.typ == Intrinsics.DBG_PRINT_STACK:
+                write("for (int jj = 0; jj < stack_ptr; jj ++) {")
+                write('  printf("%d:%d\\n", jj, stack[jj]);')
+                write("}")
+            elif op.typ == Intrinsics.CAST_PTR:  # ignore
+                pass
+            elif op.typ == Intrinsics.CAST_INT:  # ignore
+                pass
+            elif op.typ == Intrinsics.STORE8:
+                write(f"((bytes) pop())[0] = (char) pop();")
+            elif op.typ == Intrinsics.LOAD8:
+                write(f"push((char) ((bytes) pop())[0]);")
+            elif op.typ == Intrinsics.STORE16:
+                write(f"((bytes) pop())[0] = (short) pop();")
+            elif op.typ == Intrinsics.LOAD16:
+                write(f"push((short) ((bytes) pop())[0]);")
+            elif op.typ == Intrinsics.STORE32:
+                write(f"((bytes) pop())[0] = (int) pop();")
+            elif op.typ == Intrinsics.LOAD32:
+                write(f"push((int) ((bytes) pop())[0]);")
+            elif op.typ == Intrinsics.STORE64:
+                write(f"((bytes) pop())[0] = (long) pop();")
+            elif op.typ == Intrinsics.LOAD64:
+                write(f"push((long) ((bytes) pop())[0]);")
+            else:
+                raise NotImplementedError(op)
         elif op == Push:
             # for mypy reasons
-            assert type(op) == Push, "Is this even possible?"
+            assert isinstance(op, Push), "Is this even possible?"
             if op.typ == Types.INT:
                 write(f"push({op.value});")
-        elif op == KeyWords.IF:
-            write("if (pop()) {")
-            indentation_level += INDENTATION
-        elif op == KeyWords.END:
-            indentation_level -= INDENTATION
-            write("}")
-        elif op == KeyWords.WHILE:
-            while_loop_count += 1
-            write(f"while (_CeWhileLoopFunction{while_loop_count}()) ")
-
-            while_loops.append(while_loop_count)
-            indentation_levels.append(indentation_level)
-            indentation_level = 0
-            write(f"int _CeWhileLoopFunction{while_loop_count}() {{")
-            indentation_level += INDENTATION
-            write("int a, b;")
-            # raise NotImplementedError(op)
-        elif op == KeyWords.DO:
-            if while_loops:
-                write("return pop();")
+        elif op == KeyWord:
+            if op.typ == KeyWords.IF:
+                write("if (pop()) {")
+                indentation_level += INDENTATION
+            elif op.typ == KeyWords.END:
                 indentation_level -= INDENTATION
                 write("}")
-                write("    ")
-                while_loops.pop()
-                indentation_level = indentation_levels.pop()
-            write("{")
-            indentation_level += INDENTATION
-        elif op == KeyWords.CONST:
-            # no need to implement anything special for this as constants is a parsing stage thing
-            continue
-        elif op == PushVariable:
-            write(f"push({variable_prefix}{construct_name(op.name)});")
-        elif op == SetVariable:
-            write(f"{variable_prefix}{construct_name(op.name)} = pop();")
-        elif op == Intrinsics.DBG_PRINT_STACK:
-            write("for (int jj = 0; jj < stack_ptr; jj ++) {")
-            write("  printf(\"%d:%d\\n\", jj, stack[jj]);")
-            write("}")
-        elif op == MemSet:
-            name = op.name
-            write("if (stack_ptr < 2) {")
-            write("  printf(\"expected at least 2 elements on top of the stack to set memory\\n\");")
-            write("  exit(1);")
-            write("}")
-            write(f"{memory_prefix}{construct_name(name)}[pop()] = pop();")
-        elif op == MemGet:
-            name = op.name
-            write("if (stack_ptr < 1) {")
-            write("  printf(\"expected at least 1 element on top of the stack to get a part from the memory\\n\");")
-            write("  exit(1);")
-            write("}")
-            write(f"push({memory_prefix}{construct_name(name)}[pop()]);")
+            elif op.typ == KeyWords.WHILE:
+                while_loop_count += 1
+                write(f"while (_CeWhileLoopFunction{while_loop_count}()) ")
+
+                while_loops.append(while_loop_count)
+                indentation_levels.append(indentation_level)
+                indentation_level = 0
+                write(f"int _CeWhileLoopFunction{while_loop_count}() {{")
+                indentation_level += INDENTATION
+                write("int a, b;")
+                # raise NotImplementedError(op)
+            elif op.typ == KeyWords.DO:
+                if while_loops:
+                    write("return pop();")
+                    indentation_level -= INDENTATION
+                    write("}")
+                    write("    ")
+                    while_loops.pop()
+                    indentation_level = indentation_levels.pop()
+                write("{")
+                indentation_level += INDENTATION
+            elif op.typ == KeyWords.CONST:
+                # no need to implement anything special for this as constants is a parsing stage thing
+                continue
+        elif op == PushMem:
+            write(f"push((int) &{memory_prefix}{op.id});")
         else:
             raise NotImplementedError(op)
 

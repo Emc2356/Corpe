@@ -1,62 +1,61 @@
-// #include <stdio.h>
-//
-// #define BOARD_CAP 30
-// static int board[BOARD_CAP];
-//
-// int main()
-// {
-//     board[BOARD_CAP - 2] = 1;
-//
-//     for (size_t i = 0; i < BOARD_CAP - 2; ++i) {
-//         for (size_t j = 0; j < BOARD_CAP; ++j) {
-//             fputc(" *"[board[j]], stdout);
-//         }
-//         fputc('\n', stdout);
-//
-//         int pattern = (board[0] << 1) | board[1];
-//         for (size_t j = 1; j < BOARD_CAP - 1; ++j) {
-//             pattern = ((pattern << 1) & 7) | board[j + 1];
-//             board[j] = (110 >> pattern) & 1;
-//         }
-//     }
-//     return 0;
-// }
+// ptr int
+macro ptr+ cast(int) + cast(ptr) endmacro
+// int ptr
+macro +ptr swap cast(int) + cast(ptr) endmacro
+
+// code port from https://gist.github.com/rexim/c595009436f87ca076e7c4a2fb92ce10
+const sizeof(int64) 8 end
+const sizeof(int8)  1 end
+
 const sizeof(board) 30 end
-mem board sizeof(board) end
+const sizeof(board)-1 sizeof(board) 1 - end
+const sizeof(board)-2 sizeof(board) 2 - end
 
-// the memory block allocated to board is already 0 initialized
-1 sizeof(board) 1 - mem-set board
+memory board sizeof(board) sizeof(int8) * end
 
-var i
-var j
-var pattern
+memory i sizeof(int64) end
+memory pattern sizeof(int8) end
 
-0 set i
-while i sizeof(board) 2 - < do
-    0 set j
-    while j sizeof(board) < do
-        j mem-get board
-        // the math here works because '*' in ascii is 42 and ' ' is 32
-        // so if the value is 0 we multiply with 0 and add 32 so we have space
-        // and if we multiply with 1 we get 30 and we add 32 so we have asterisk
+macro i.value i @64 endmacro
+macro i.store i !64 endmacro
+macro pattern.value pattern @8 endmacro
+macro pattern.store pattern !8 endmacro
+
+1 board sizeof(board)-1 sizeof(int8) * +ptr !8
+
+0 while dup sizeof(board)-2 < do
+    0 while dup sizeof(board) < do
+        dup sizeof(int8) *
+        board ptr+ @8
         10 * 32 + putc
-        j 1 + set j
-    end
+        1 +
+    end drop
 
     10 putc
 
-    1 set j
+    // target series of instructions:
+    // int pattern = (board[0] << 1) | board[1];
+    board @8 1 << // (board[0] << 1)
+    board sizeof(int8) +ptr @8 // board[1]
+    | // perform a bitwise or operation
+    pattern.store // set te value
 
-    0 mem-get board 1 <<
-    1 mem-get board |
-    set pattern
-    while j sizeof(board) 1 - < do
-        pattern 1 << 7 & j 1 + mem-get board |
-        set pattern
-        110 pattern >> 1 &
-        j mem-set board
-        j 1 + set j
+    0 i.store // set the value of i
+    while i.value sizeof(board)-1 < do
+        // target series of instructions:
+        // pattern = ((pattern << 1) & 7) | board[i + 1];
+        pattern.value 1 << 7 & // ((pattern << 1) & 7)
+        i.value 1 + sizeof(int8) * board ptr+ @8
+        | // perform a bitwise or
+        pattern.store // save the current value to pattern
+
+        // board[i] = (110 >> pattern) & 1;
+        110 pattern.value >> 1 & // (110 >> pattern) & 1
+        i.value sizeof(int8) * board ptr+ !8
+
+        // increment i
+        i.value 1 + i.store
     end
 
-    i 1 + set i
-end
+    1 +
+end drop

@@ -10,7 +10,7 @@ from src.compiler import generate_c_code_from_AST  # type: ignore[import]
 import subprocess
 from pathlib import Path
 from typing import Union
-from src import core, parsing, CEAst  # type: ignore[import]
+from src import core, parsing, CEAst, typecheck  # type: ignore[import]
 import sys
 import shlex
 
@@ -62,6 +62,8 @@ def echo_and_call(cmd: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    sys.argv.extend(["test.ce", "-r"])
+
     if len(sys.argv) < 2 or any(
         x in sys.argv for x in ["-h", "--h", "-help", "--help"]
     ):
@@ -81,9 +83,11 @@ if __name__ == "__main__":
 
     with open(base_filename + ".c", "w") as out:
         print(f"[INFO] parsing {filepath}...")
-        ast = CEAst.makeAST(parsing.parse_file(filepath))
+        ast = CEAst.makeAST(parsing.parse_file(filepath), Path(filepath))
+        print(f"[INFO] type checking {filepath}...")
+        typecheck.typecheck_AST(ast)
         print("[INFO] generating C code...")
-        out.write(generate_c_code_from_AST(ast, core.BOUNDS_CHECKING, core.STACK_SIZE))
+        out.write(generate_c_code_from_AST(ast, core.STACK_SIZE))
 
     print("[INFO] compiling with GCC compiler...")
     if echo_and_call(
