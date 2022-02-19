@@ -85,8 +85,8 @@ def generate_standard_code(
         }}
         
         void dup2() {{
-          stack[++stack_ptr] = stack[stack_ptr - 1];
-          stack[++stack_ptr] = stack[stack_ptr - 1];
+          stack[++stack_ptr] = stack[stack_ptr - 2];
+          stack[++stack_ptr] = stack[stack_ptr - 2];
         }}
         
         void swap() {{

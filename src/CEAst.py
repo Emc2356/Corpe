@@ -364,7 +364,7 @@ def makeAST(ops: list[tuple[LocType, str]], path: Path) -> AST:
             if ret_code == 2:
                 compiler_error(
                     op.format_location(),
-                    f"end for the const declaration was not found, const block needs to end with 'end' keyword",
+                    f"end for the memory declaration was not found, const block needs to end with 'end' keyword",
                 )
         else:
             operations.append(op)

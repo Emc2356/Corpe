@@ -62,8 +62,6 @@ def echo_and_call(cmd: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.argv.extend(["test.ce", "-r"])
-
     if len(sys.argv) < 2 or any(
         x in sys.argv for x in ["-h", "--h", "-help", "--help"]
     ):
