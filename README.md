@@ -40,50 +40,18 @@ write a plain number, either a normal, hex or bin to push it to the data stack
 | `>=` | `[a: int] [b: int] -- [a >= b: int]` | it checks if one number is great than or equal to another number | 
 | `>` | `[a: int] [b: int] -- [a> b: int]` | it checks if one number is greater than the other number | 
 
-- `print`, print the number on top of the stack
-```
-a = pop()
-print(a)
-```
-- `putc`, interpreters the number on top of the stack as a character and prints it
-```
-putc(a)
-```
-- `drop`, it removes the top element
-```
-a = pop()
-```
-- `2drop`, it removes the top 2 elements from the stack
-```
-a = pop()
-b = pop()
-```
-- `dup`, duplicates the element on top of the stack
-```
-a = pop()
-push(a)
-push(a)
-```
-- `2dup`, duplicates the top 2 elements on the stop
-```
-a = pop()
-b = pop()
-push(b)
-push(a)
-push(b)
-push(a)
-```
-- `swap`, it swaps the first two elements in the stack
-```
-a = pop()
-b = pop()
-push(a)
-push(b)
-```
-- `clear`, it clears the data stack
-```
-stack.clear()
-```
+# stack operators
+| name | signature | description |
+|:----:|:---------:|:-----------:|
+| `print` | `a -- ` | it prints the element from the top of the stack |
+| `putc` | `a -- ` | it prints the corresponding character for an integer from the stack |
+| `drop` | `a -- ` | it removes one element from the stack |
+| `2drop` | `a b -- ` | it removes two elements from the stack |
+| `dup` | `a -- a a` | it duplicates the element from the top of the stack |
+| `2dup` | `a b -- a b a b` | it duplicates a pair of elements from the stack |
+| `swap` | `a b -- b a` | it swaps the two items from the top of the stack |
+| `over` | `a b -- a b a` | it copies the second element to the stack |
+| `clear` | `... -- ` | it clears the stack |
 
 # type checking
 corpe is a statically typed language  
@@ -145,5 +113,5 @@ print the first 100 numbers with while loops
 0 while dup 100 < do
     dup print
     1 +
-end 0
+end drop
 ```

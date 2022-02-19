@@ -69,6 +69,7 @@ class Intrinsics(BuildIn, Enum):
     DUP = auto()
     DUP2 = auto()
     SWAP = auto()
+    OVER = auto()
     CLEAR = auto()
     DBG_PRINT_STACK = auto()
     CAST_INT = auto()
@@ -225,6 +226,7 @@ mapping: dict[BuildIn, str] = {
     Intrinsics.DUP: "dup",
     Intrinsics.DUP2: "2dup",
     Intrinsics.SWAP: "swap",
+    Intrinsics.OVER: "over",
     Intrinsics.CLEAR: "clear",
     Intrinsics.DBG_PRINT_STACK: "dbg-print-stack",
     Intrinsics.CAST_INT: "cast(int)",

@@ -327,8 +327,20 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                 typecheck_node_must_have_one_element(
                     stack, node, mapping[Intrinsics.DUP2]
                 )
-                a = stack[-1]
+                a = stack.pop()
+                b = stack.pop()
                 stack.append(a)
+                stack.append(b)
+                stack.append(a)
+                stack.append(b)
+            elif node.typ == Intrinsics.OVER:
+                typecheck_node_must_have_two_elements(
+                    stack, node, mapping[Intrinsics.OVER]
+                )
+                a = stack.pop()
+                b = stack.pop()
+                stack.append(a)
+                stack.append(b)
                 stack.append(a)
             elif node.typ == Intrinsics.SWAP:
                 typecheck_node_must_have_two_elements(

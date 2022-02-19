@@ -84,6 +84,10 @@ def generate_standard_code(
           stack[++stack_ptr] = stack[stack_ptr - 1];
         }}
         
+        void over() {{
+          stack[++stack_ptr] = stack[stack_ptr - 2];
+        }}
+        
         void dup2() {{
           stack[++stack_ptr] = stack[stack_ptr - 2];
           stack[++stack_ptr] = stack[stack_ptr - 2];
@@ -240,6 +244,9 @@ def generate_c_code_from_AST(ast: CEAst.AST, stack_size: int = 30000) -> str:
             elif op.typ == Intrinsics.SWAP:
                 write("// swap")
                 write("swap();")
+            elif op.typ == Intrinsics.OVER:
+                write("// over")
+                write("over();")
             elif op.typ == Intrinsics.CLEAR:
                 write("// clear stack")
                 write("clear();")
