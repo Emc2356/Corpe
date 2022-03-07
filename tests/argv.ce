@@ -1,0 +1,14 @@
+const sizeof(ptr) 4 end
+
+// expects int returns ptr
+macro get_nth_argv
+    sizeof(ptr) * argv cast(int) + cast(ptr)
+endmacro
+
+argc 1 -
+while dup do
+    argc over -
+    get_nth_argv puts
+    10 putc
+    1 -
+end drop

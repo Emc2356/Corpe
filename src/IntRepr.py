@@ -42,9 +42,9 @@ def run_checks():
         sys.exit(1)
 
 
-# Abstract Syntax Tree
+# to hold all of the collected information about the program
 @dataclass
-class AST:
+class IntRepr:
     path: Path
     body: list[BuildIn]
     memories: list[Mem]
@@ -147,7 +147,10 @@ def can_be_int(s: str) -> bool:
 
 
 def gather_ops_to_right_until_op(
-    ops_to_right: list[Operation], blocked: list[str], out: list[Operation], exit_word: str=mapping[KeyWords.END]
+    ops_to_right: list[Operation],
+    blocked: list[str],
+    out: list[Operation],
+    exit_word: str = mapping[KeyWords.END],
 ) -> int:
     """
     return codes:
@@ -165,7 +168,7 @@ def gather_ops_to_right_until_op(
     return 2
 
 
-def makeAST(ops: list[tuple[LocType, str]], path: Path) -> AST:
+def makeAST(ops: list[tuple[LocType, str]], path: Path) -> IntRepr:
     # NOTE: in C &var, were var is a pointer, it returns the address of it
 
     # all of the instructions that will be compiled
@@ -193,7 +196,9 @@ def makeAST(ops: list[tuple[LocType, str]], path: Path) -> AST:
 
     _operations: list[Operation] = [Operation(x[0], x[1]) for x in ops]
     operations: list[Operation] = []
-    for i, op in enumerate(_operations):  # first pass to gather information about the program
+    for i, op in enumerate(
+        _operations
+    ):  # first pass to gather information about the program
         if skips:
             skips -= 1
             continue
@@ -201,11 +206,10 @@ def makeAST(ops: list[tuple[LocType, str]], path: Path) -> AST:
         if op.word == mapping[KeyWords.MACRO]:
             if len(ops_to_right) <= 1:
                 compiler_error(
-                    op.format_location(),
-                    f"macro definition needs a name and a ending"
+                    op.format_location(), f"macro definition needs a name and a ending"
                 )
 
-            gathered = []
+            gathered: list[Operation] = []
             blocked = [
                 mapping[KeyWords.MACRO],
                 mapping[KeyWords.CONST],
@@ -216,7 +220,7 @@ def makeAST(ops: list[tuple[LocType, str]], path: Path) -> AST:
             if check_word_redefinition(macro_name, constants, memories, macros):
                 compiler_error(
                     ops_to_right[0].format_location(),
-                    f"{macro_name} is already defined"
+                    f"{macro_name} is already defined",
                 )
 
             ret_code = gather_ops_to_right_until_op(
@@ -427,4 +431,4 @@ def makeAST(ops: list[tuple[LocType, str]], path: Path) -> AST:
     if error_occurred:
         sys.exit(1)
 
-    return AST(path, body, memories)
+    return IntRepr(path, body, memories)

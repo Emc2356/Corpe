@@ -5,6 +5,10 @@ from src.core import COMMENT  # type: ignore[import]
 LocType = tuple[str, int, int]
 
 
+def parse_file_try(filepath: str) -> list[tuple[LocType, str]]:
+    pass
+
+
 def parse_file(file_path: str) -> list[tuple[LocType, str]]:
     def find_col(line, start, predicate):
         while start < len(line) and not predicate(line[start]):

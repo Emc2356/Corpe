@@ -58,6 +58,7 @@ class Intrinsics(BuildIn, Enum):
     LSHIFT = auto()
     PRINT = auto()
     PUTC = auto()
+    PUTSTR = auto()
     LT = auto()
     LE = auto()
     EQ = auto()
@@ -82,10 +83,13 @@ class Intrinsics(BuildIn, Enum):
     LOAD32 = auto()
     STORE64 = auto()
     LOAD64 = auto()
+    ARGC = auto()
+    ARGV = auto()
 
 
 class KeyWords(BuildIn, Enum):
     IF = auto()
+    ELSE = auto()
     END = auto()
     WHILE = auto()
     MEMORY = auto()
@@ -98,6 +102,7 @@ class KeyWords(BuildIn, Enum):
 class Types(BuildIn, Enum):
     INT = auto()
     POINTER = auto()
+    BOOL = auto()
 
 
 def format_location(file: str, line: int, column: int) -> str:
@@ -118,7 +123,6 @@ class ExpandedFromNode:
 class Push(BuildIn):
     value: Union[str, int]
     typ: Types
-    expanded_from: Optional[str] = None
 
     def __eq__(self, other) -> bool:
         return type(self) == other
@@ -128,7 +132,6 @@ class Push(BuildIn):
 class Intrinsic(BuildIn):
     typ: Intrinsics
     loc: LocType
-    expanded_from: Optional[ExpandedFromNode] = None
 
     def format_location(self) -> str:
         return format_location(self.loc[0], self.loc[1], self.loc[2])
@@ -141,7 +144,6 @@ class Intrinsic(BuildIn):
 class KeyWord(BuildIn):
     typ: KeyWords
     loc: LocType
-    expanded_from: Optional[ExpandedFromNode] = None
 
     def format_location(self) -> str:
         return format_location(self.loc[0], self.loc[1], self.loc[2])
@@ -154,7 +156,6 @@ class KeyWord(BuildIn):
 class Operation:
     loc: LocType
     word: str
-    expanded_from: Optional[ExpandedFromNode] = None
 
     def format_location(self) -> str:
         return format_location(self.loc[0], self.loc[1], self.loc[2])
@@ -165,7 +166,6 @@ class Macro(BuildIn):
     name: str
     loc: LocType
     ops: list[Operation]
-    expanded_from: Optional[ExpandedFromNode] = None
 
     def format_location(self) -> str:
         return format_location(self.loc[0], self.loc[1], self.loc[2])
@@ -177,7 +177,6 @@ class Mem(BuildIn):
     name: str
     loc: LocType
     id: int = -1  # will be set by the compiler.py file to simplify name
-    expanded_from: Optional[ExpandedFromNode] = None
 
     def format_location(self) -> str:
         return format_location(self.loc[0], self.loc[1], self.loc[2])
@@ -191,7 +190,6 @@ class PushMem(BuildIn):
     name: str
     loc: LocType
     id: int = -1
-    expanded_from: Optional[ExpandedFromNode] = None
 
     def format_location(self) -> str:
         return format_location(self.loc[0], self.loc[1], self.loc[2])
@@ -221,6 +219,7 @@ mapping: dict[BuildIn, str] = {
     Intrinsics.GT: ">",
     Intrinsics.PRINT: "print",
     Intrinsics.PUTC: "putc",
+    Intrinsics.PUTSTR: "puts",
     Intrinsics.DROP: "drop",
     Intrinsics.DROP2: "2drop",
     Intrinsics.DUP: "dup",
@@ -239,7 +238,10 @@ mapping: dict[BuildIn, str] = {
     Intrinsics.LOAD32: "@32",
     Intrinsics.STORE64: "!64",
     Intrinsics.LOAD64: "@64",
+    Intrinsics.ARGC: "argc",
+    Intrinsics.ARGV: "argv",
     KeyWords.IF: "if",
+    KeyWords.ELSE: "else",
     KeyWords.END: "end",
     KeyWords.WHILE: "while",
     KeyWords.DO: "do",
@@ -247,5 +249,8 @@ mapping: dict[BuildIn, str] = {
     KeyWords.MEMORY: "memory",
     KeyWords.MACRO: "macro",
     KeyWords.ENDMACRO: "endmacro",
+    Types.INT: "int",
+    Types.POINTER: "ptr",
+    Types.BOOL: "bool",
 }
 mapping_names: list[str] = list(mapping.values())

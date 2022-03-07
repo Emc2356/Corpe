@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from src.core import Patterns, CWD, BuildIn  # type: ignore[import]
-import src.CEAst as CEAst  # type: ignore[import]
+import src.IntRepr as CEAst  # type: ignore[import]
 
 from typing import Optional
 
@@ -184,6 +184,23 @@ def typecheck_node_expect_one_int_return_none(
     stack.pop()
 
 
+def typecheck_node_expect_one_ptr_return_none(
+    stack: DataStackType, node: BuildIn, name: str
+) -> None:
+    if len(stack) < 1:
+        typecheck_error(
+            node.format_location(),
+            f"{name} expects one integer on the stack but found none",
+        )
+    types = [stack[-1]]
+    if types != [CEAst.Types.POINTER]:
+        typecheck_error(
+            node.format_location(),
+            f"{name} expected one integer on top of the stack but found {types_to_human(types)}",
+        )
+    stack.pop()
+
+
 def typecheck_node_must_have_two_elements(
     stack: DataStackType, node: BuildIn, name: str
 ) -> None:
@@ -216,7 +233,7 @@ def stack_equality(stack1: DataStackType, stack2: DataStackType) -> bool:
     return list(stack1) == list(stack2)
 
 
-def typecheck_AST(ast: CEAst.AST) -> None:
+def typecheck_AST(ast: CEAst.IntRepr) -> None:
     stack: DataStackType = deque()
     stacks: list[tuple[DataStackType, BuildIn]] = []
 
@@ -282,6 +299,10 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                 typecheck_node_expect_one_int_return_none(
                     stack, node, mapping[Intrinsics.PUTC]
                 )
+            elif node.typ == Intrinsics.PUTSTR:
+                typecheck_node_expect_one_ptr_return_none(
+                    stack, node, mapping[Intrinsics.PUTSTR]
+                )
             elif node.typ == Intrinsics.LT:
                 typecheck_node_expect_two_ints_return_one_int(
                     stack, node, mapping[Intrinsics.LT]
@@ -339,9 +360,9 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                 )
                 a = stack.pop()
                 b = stack.pop()
-                stack.append(a)
                 stack.append(b)
                 stack.append(a)
+                stack.append(b)
             elif node.typ == Intrinsics.SWAP:
                 typecheck_node_must_have_two_elements(
                     stack, node, mapping[Intrinsics.SWAP]
@@ -390,6 +411,10 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                 typecheck_node_expect_ptr_return_int(
                     stack, node, mapping[Intrinsics.LOAD8]
                 )
+            elif node.typ == Intrinsics.ARGC:
+                stack.append(Types.INT)
+            elif node.typ == Intrinsics.ARGV:
+                stack.append(Types.POINTER)
             else:
                 raise NotImplementedError(node)
 
@@ -398,6 +423,21 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                 stack.pop()
                 stacks.append((stack, node))
                 stack = stack.copy()
+            elif node.typ == KeyWords.ELSE:
+                if len(stacks) == 0:
+                    typecheck_error(
+                        node.format_location(),
+                        "expected a 'if' before an else but found nothing"
+                    )
+                _expect, _op = stacks.pop()
+                assert _op == KeyWord
+                if _op.typ != KeyWords.IF:
+                    typecheck_error(
+                        node.format_location(),
+                        f"expected a 'if' before an else but found `{mapping[_op.typ]}`"
+                    )
+                stacks.append((stack, node))
+                stack = _expect
             elif node.typ == KeyWords.WHILE:
                 stacks.append((stack, node))
                 stack = stack.copy()
@@ -436,6 +476,18 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                             op.format_location(),
                             f"\nexpected: {list(expect)}\n" f"got: {list(stack)}",
                         )
+                elif op.typ == KeyWords.ELSE:
+                    if not stack_equality(expect, stack):
+                        typecheck_error(
+                            op.format_location(),
+                            f"data types changed in the if branch need to be changed in the else branch",
+                            node,
+                            noexit=True,
+                        )
+                        typecheck_note(
+                            op.format_location(),
+                            f"\nexpected: {list(expect)}\n" f"got: {list(stack)}",
+                        )
                 elif op.typ == KeyWords.DO:
                     if not stack_equality(expect, stack):
                         typecheck_error(
@@ -448,6 +500,10 @@ def typecheck_AST(ast: CEAst.AST) -> None:
                             op.format_location(),
                             f"\nexpected: {list(expect)}\n" f"got: {list(stack)}",
                         )
+                else:
+                    raise NotImplementedError(node)
+            else:
+                raise NotImplementedError(node)
         else:
             raise NotImplementedError(node)
 

@@ -4,15 +4,19 @@ to type checking with mypy
 
 """
 
-
+from dataclasses import dataclass
+from typing import *
 from pathlib import Path
 import subprocess
+import src.core as core  # type: ignore[import]
 import shlex
 import black  # type: ignore[import]
+import glob
 import sys
 import os
 
 here = Path(os.path.abspath(__file__)).parent
+test_folder = Path(os.path.abspath(__file__)).parent / "tests"
 all_scripts = [here / "corpe.py", here / "tests.py"]
 all_scripts.extend(
     here / "src" / script
@@ -28,6 +32,7 @@ def echo_and_call(cmd: list[str]) -> None:
 
 
 if __name__ == "__main__":
+    sys.argv.append("-run")
     if len(sys.argv) == 1:
         sys.argv.append("-full")
 

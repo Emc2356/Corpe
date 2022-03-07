@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from src.core import INDENTATION  # type: ignore[import]
 
-import src.CEAst as CEAst  # type: ignore[import]
+import src.IntRepr as CEAst  # type: ignore[import]
 
 from src.core import (  # type: ignore[import]
     Patterns,
@@ -36,12 +36,14 @@ def construct_name(name: str) -> str:
 
 def generate_standard_code(
     out: list[str],
-    ast: CEAst.AST,
+    ast: CEAst.IntRepr,
     stack_size: int = 30000,
 ) -> None:
     # NOTE: indentation has to be 8 spaces
 
-    push_mems: list[PushMem] = list(filter(lambda op: isinstance(op, PushMem), ast.body))
+    push_mems: list[PushMem] = list(
+        filter(lambda op: isinstance(op, PushMem), ast.body)
+    )
 
     # to be sure that we dont access out of memory accidentally
     memories = "\n"
@@ -60,6 +62,7 @@ def generate_standard_code(
         
         typedef unsigned char byte;
         typedef unsigned char* bytes;
+        typedef char* string;
         
         int stack[{stack_size}];
         int stack_ptr = 0;
@@ -102,12 +105,14 @@ def generate_standard_code(
         void clear() {{
           stack_ptr = 0;
         }}
-    """[1:]
+    """[
+            1:
+        ]
     )
     out.extend(line + "\n" for line in string.splitlines())
 
 
-def generate_c_code_from_AST(ast: CEAst.AST, stack_size: int = 30000) -> str:
+def generate_c_code_from_AST(ast: CEAst.IntRepr, stack_size: int = 30000) -> str:
     generated_c: list[str] = []
     generated_functions_c: list[str] = []
     generated_standard_c: list[str] = []
@@ -259,21 +264,27 @@ def generate_c_code_from_AST(ast: CEAst.AST, stack_size: int = 30000) -> str:
             elif op.typ == Intrinsics.CAST_INT:  # ignore
                 pass
             elif op.typ == Intrinsics.STORE8:
-                write(f"((bytes) pop())[0] = (char) pop();")
+                write(f"((bytes) pop())[0] = (char) (pop() % 255);")
             elif op.typ == Intrinsics.LOAD8:
                 write(f"push((char) ((bytes) pop())[0]);")
             elif op.typ == Intrinsics.STORE16:
-                write(f"((bytes) pop())[0] = (short) pop();")
+                write(f"((bytes) pop())[0] = (short) (pop() % 65535);")
             elif op.typ == Intrinsics.LOAD16:
                 write(f"push((short) ((bytes) pop())[0]);")
             elif op.typ == Intrinsics.STORE32:
-                write(f"((bytes) pop())[0] = (int) pop();")
+                write(f"((bytes) pop())[0] = (int) (pop() %  4294967295);")
             elif op.typ == Intrinsics.LOAD32:
                 write(f"push((int) ((bytes) pop())[0]);")
             elif op.typ == Intrinsics.STORE64:
-                write(f"((bytes) pop())[0] = (long) pop();")
+                write(f"((bytes) pop())[0] = (long) (pop() % 9223372036854775807u);")
             elif op.typ == Intrinsics.LOAD64:
                 write(f"push((long) ((bytes) pop())[0]);")
+            elif op.typ == Intrinsics.ARGC:
+                write("push(argc);")
+            elif op.typ == Intrinsics.ARGV:
+                write("push((int) &argv[0]);")
+            elif op.typ == Intrinsics.PUTSTR:
+                write("printf(\"%s\", *((string*) (pop())));")
             else:
                 raise NotImplementedError(op)
         elif op == Push:
@@ -284,6 +295,10 @@ def generate_c_code_from_AST(ast: CEAst.AST, stack_size: int = 30000) -> str:
         elif op == KeyWord:
             if op.typ == KeyWords.IF:
                 write("if (pop()) {")
+                indentation_level += INDENTATION
+            elif op.typ == KeyWords.ELSE:
+                indentation_level -= INDENTATION
+                write("} else {")
                 indentation_level += INDENTATION
             elif op.typ == KeyWords.END:
                 indentation_level -= INDENTATION
@@ -309,9 +324,8 @@ def generate_c_code_from_AST(ast: CEAst.AST, stack_size: int = 30000) -> str:
                     indentation_level = indentation_levels.pop()
                 write("{")
                 indentation_level += INDENTATION
-            elif op.typ == KeyWords.CONST:
-                # no need to implement anything special for this as constants is a parsing stage thing
-                continue
+            else:
+                raise NotImplementedError(op)
         elif op == PushMem:
             write(f"push((int) &{memory_prefix}{op.id});")
         else:
